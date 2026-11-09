@@ -2,17 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
-import json
 import logging
-from pathlib import Path
-from urllib.parse import parse_qs, urlsplit
 
 import flet as ft
-from flet_webview import WebView
 
-from data import SAMPLE_PROGRAM
 from dsl import dxf_r12, parse_program
+from views.block_editor import BlockEditor
 from views.previews import layer_legend, make_preview
 
 log = logging.getLogger(f"app.{__name__}")
@@ -26,14 +21,11 @@ class EditorScreen:
         self.theme_mode = theme_mode
         self.mobile_panel = "code"
         self.editor_mode = "code"
-        self.block_webview: WebView | None = None
-        self.blockly_initialized = False
-        self.blockly_loading = False
         self.orthographic_view = "XY"
         self.collapsed = {"iso": False, "2d": False}
-        self.entities, self.planes, self.units, self.layers, self.errors = parse_program(SAMPLE_PROGRAM)
+        self.entities, self.planes, self.units, self.layers, self.errors = parse_program("")
         self.editor = ft.TextField(
-            value=SAMPLE_PROGRAM,
+            value="",
             multiline=True,
             expand=True,
             text_style=ft.TextStyle(font_family="monospace", size=13),
@@ -41,6 +33,7 @@ class EditorScreen:
             on_change=self._code_changed,
             autofocus=False,
         )
+        self.block_editor = BlockEditor(self._blocks_changed)
         self.status = ft.Text(size=12)
         self.summary = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.iso_canvas = make_preview(self.entities, self.planes, self.layers, "ISOMETRIC", 360, 390)
@@ -157,21 +150,7 @@ class EditorScreen:
                 blocks_button_type(content="Blocks", icon=ft.Icons.GRID_VIEW, on_click=lambda: self._select_editor_mode("blocks")),
             ],
         )
-        if self.editor_mode == "code":
-            working_area: ft.Control = self.editor
-        elif not self._blockly_supported():
-            working_area = ft.Container(
-                expand=True,
-                alignment=ft.Alignment.CENTER,
-                content=ft.Text(
-                    "Google Blockly is available in the installed Android and iOS apps (and macOS), not in the web preview or Windows/Linux.",
-                    text_align=ft.TextAlign.CENTER,
-                ),
-            )
-        elif self.block_webview is not None:
-            working_area = self.block_webview
-        else:
-            working_area = ft.Container(expand=True, alignment=ft.Alignment.CENTER, content=ft.Text("Preparing Blockly…"))
+        working_area: ft.Control = self.editor if self.editor_mode == "code" else self.block_editor.view
         return ft.Container(
             expand=True,
             padding=10,
@@ -180,79 +159,36 @@ class EditorScreen:
             content=ft.Column(expand=True, spacing=8, controls=[header, mode_picker, working_area, self.summary]),
         )
 
-    def _blockly_supported(self) -> bool:
-        platform = getattr(self.page.platform, "value", self.page.platform)
-        return not self.page.web and platform in {"android", "ios", "macos"}
-
     def _select_editor_mode(self, mode: str):
         if mode == self.editor_mode:
             return
-        if mode == "blocks" and self.errors:
-            self.status.value = "Fix DSL issues before opening Blocks"
-            self.status.color = ft.Colors.ERROR
-            self.status.update()
-            return
-        self.editor_mode = mode
-        if mode == "blocks" and self._blockly_supported() and self.block_webview is None:
-            self.block_webview = WebView(
-                expand=True,
-                prevent_links=["draftline://"],
-                on_page_ended=self._blockly_page_ended,
-                on_url_change=self._blockly_url_changed,
-            )
-        self._set_body()
-        self.page.update()
-        if mode == "blocks" and self._blockly_supported() and not self.blockly_loading:
-            asyncio.create_task(self._load_blockly())
-
-    async def _load_blockly(self):
-        if self.block_webview is None or self.blockly_loading:
-            return
-        if not self.blockly_initialized:
-            self.blockly_loading = True
-            try:
-                html_path = Path(__file__).resolve().parent.parent / "assets" / "blockly.html"
-                await self.block_webview.load_html(value=html_path.read_text(encoding="utf-8"))
-            except Exception:
-                self.blockly_loading = False
-                log.exception("Could not initialize Blockly")
-                self.status.value = "Blockly could not load; check the internet connection"
+        if mode == "blocks":
+            if self.errors:
+                self.status.value = "Fix DSL issues before opening Blocks"
                 self.status.color = ft.Colors.ERROR
                 self.status.update()
-            return
-        await self._push_dsl_to_blockly()
+                return
+            try:
+                self.block_editor.load_source(self.editor.value or "")
+            except ValueError as exc:
+                self.status.value = str(exc)
+                self.status.color = ft.Colors.ERROR
+                self.status.update()
+                return
+        else:
+            self.editor.value = self.block_editor.to_source()
+            self.entities, self.planes, self.units, self.layers, self.errors = parse_program(self.editor.value)
+            self._update_status()
+            self._refresh_previews()
+        self.editor_mode = mode
+        self._set_body()
+        self.page.update()
 
-    def _blockly_page_ended(self):
-        self.blockly_initialized = True
-        self.blockly_loading = False
-        asyncio.create_task(self._push_dsl_to_blockly())
-
-    async def _push_dsl_to_blockly(self):
-        if self.block_webview is None or not self.blockly_initialized:
-            return
-        try:
-            await self.block_webview.run_javascript(
-                value=f"window.setBlockTheme({json.dumps(self.theme_mode)}); window.loadDsl({json.dumps(self.editor.value or '')});"
-            )
-        except Exception:
-            log.exception("Could not synchronize DSL with Blockly")
-            self.status.value = "Blockly could not load; check the internet connection"
-            self.status.color = ft.Colors.ERROR
-            self.status.update()
-
-    def _blockly_url_changed(self, event):
-        url = event.data or ""
-        parsed = urlsplit(url)
-        if parsed.scheme != "draftline" or parsed.netloc != "dsl":
-            return
-        source_values = parse_qs(parsed.query).get("code")
-        if not source_values:
-            return
-        self.editor.value = source_values[0]
-        self.entities, self.planes, self.units, self.layers, self.errors = parse_program(self.editor.value)
+    def _blocks_changed(self, source: str):
+        self.editor.value = source
+        self.entities, self.planes, self.units, self.layers, self.errors = parse_program(source)
         self._update_status()
         self._refresh_previews()
-        self.page.update()
 
     def _preview_panel(self, key: str, mobile: bool = False) -> ft.Container:
         is_iso = key == "iso"
@@ -385,10 +321,15 @@ class EditorScreen:
                 self.entities, self.planes, self.units, self.layers, self.errors = parse_program(self.editor.value)
                 self._update_status()
                 self._refresh_previews()
+                if self.editor_mode == "blocks":
+                    if self.errors:
+                        self.editor_mode = "code"
+                        self._set_body()
+                    else:
+                        self.block_editor.load_source(self.editor.value)
                 if self.editor.page is not None:
                     self.editor.update()
-                if self.editor_mode == "blocks" and not self.errors and self.blockly_initialized:
-                    asyncio.create_task(self._load_blockly())
+                self.page.update()
             except UnicodeDecodeError:
                 self.status.value = "Could not read that file as UTF-8"
                 self.status.color = ft.Colors.ERROR
@@ -444,6 +385,4 @@ class EditorScreen:
         self.page.theme_mode = modes[self.theme_mode]
         await self.preferences.set("appearance", self.theme_mode)
         self.page.update()
-        if self.blockly_initialized and self.block_webview is not None:
-            await self.block_webview.run_javascript(value=f"window.setBlockTheme({json.dumps(self.theme_mode)})")
         log.info("appearance preference set to %s", self.theme_mode)

@@ -6,8 +6,7 @@ authors = [
     { name = "William Adams", email = "willadams@aol.com" }
 ]
 dependencies = [
-    "flet",
-    "flet-webview"
+    "flet"
 ]
 description = "A responsive vector drawing IDE with a compact geometry DSL, live 2D and isometric previews, and DXF R12 export."
 
