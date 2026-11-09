@@ -55,8 +55,13 @@ BLOCK_FIELDS: dict[str, list[tuple[str, str, str]]] = {
 class BlockEditor:
     """Editable, vertically stacked command blocks with DSL round-tripping."""
 
-    def __init__(self, on_change: Callable[[str], None]):
+    def __init__(
+        self,
+        on_change: Callable[[str], None],
+        on_structure_change: Callable[[], None],
+    ):
         self.on_change = on_change
+        self.on_structure_change = on_structure_change
         self.blocks: list[dict[str, object]] = []
         self.kind_picker = ft.Dropdown(
             value="LINE",
@@ -94,6 +99,7 @@ class BlockEditor:
         self.blocks.append(self._new_block(kind))
         self._render_blocks()
         self._emit_source()
+        self.on_structure_change()
 
     def _new_block(self, kind: str) -> dict[str, object]:
         return {
@@ -105,6 +111,7 @@ class BlockEditor:
         del self.blocks[index]
         self._render_blocks()
         self._emit_source()
+        self.on_structure_change()
 
     def _move_block(self, index: int, direction: int):
         destination = index + direction
@@ -113,6 +120,7 @@ class BlockEditor:
         self.blocks[index], self.blocks[destination] = self.blocks[destination], self.blocks[index]
         self._render_blocks()
         self._emit_source()
+        self.on_structure_change()
 
     def _field_changed(self, event, index: int, key: str):
         fields = self.blocks[index]["fields"]
@@ -130,9 +138,9 @@ class BlockEditor:
             )
         for index, block in enumerate(self.blocks):
             controls.append(self._block_card(index, block))
+        # Replacing controls is safe before mounting; the parent refreshes the
+        # page after structural edits once this ListView is attached.
         self.block_list.controls = controls
-        if self.block_list.page is not None:
-            self.block_list.update()
 
     def _block_card(self, index: int, block: dict[str, object]) -> ft.Container:
         kind = str(block["kind"])

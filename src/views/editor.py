@@ -33,7 +33,7 @@ class EditorScreen:
             on_change=self._code_changed,
             autofocus=False,
         )
-        self.block_editor = BlockEditor(self._blocks_changed)
+        self.block_editor = BlockEditor(self._blocks_changed, self._block_structure_changed)
         self.status = ft.Text(size=12)
         self.summary = ft.Text(size=12, color=ft.Colors.OUTLINE)
         self.iso_canvas = make_preview(self.entities, self.planes, self.layers, "ISOMETRIC", 360, 390)
@@ -189,6 +189,12 @@ class EditorScreen:
         self.entities, self.planes, self.units, self.layers, self.errors = parse_program(source)
         self._update_status()
         self._refresh_previews()
+
+    def _block_structure_changed(self):
+        # Structural edits rebuild the ListView children; refresh only after it
+        # has been mounted. Field edits keep the existing controls and avoid
+        # interrupting text-field focus.
+        self.page.update()
 
     def _preview_panel(self, key: str, mobile: bool = False) -> ft.Container:
         is_iso = key == "iso"
