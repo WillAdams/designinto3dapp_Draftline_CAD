@@ -4,6 +4,10 @@ Draftline is a small, line-oriented language for drawing 2D primitives on named 
 
 This guide describes the commands currently accepted by the parser, their parameters, coordinate semantics, colour rules, and export behavior.
 
+## Block programming mode
+
+On Android, iOS, and macOS, the editor also offers a **Blocks** mode powered by Google Blockly. The drawing setup blocks cover `UNITS`, `LAYER`, and `PLANE`; geometry blocks cover `LINE`, `CIRCLE`, and `ARC`; a note block preserves `#` comments. Each block exposes the command's DSL parameters, including plane orientation, rotation, normal offset, layer, and colour. Changes in Blocks update the same `.dline` source used by the text editor, previews, and DXF export. The Blockly library is loaded from the internet, so an internet connection is required; embedded Blockly is not available in the Studio web preview or on Windows/Linux.
+
 ## A first drawing
 
 A program is a sequence of commands. Blank lines and text after `#` are ignored. Commands and parameter names are case-insensitive; plane and layer names are also matched case-insensitively. Each parameter is written as one whitespace-delimited `key=value` token. Vectors are comma-separated numbers without spaces.
