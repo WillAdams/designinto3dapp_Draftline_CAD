@@ -1,0 +1,30 @@
+[project]
+name = "draftline-cad"
+version = "1.0.0"
+requires-python = ">=3.12"
+authors = [
+    { name = "William Adams", email = "willadams@aol.com" }
+]
+dependencies = [
+    "flet"
+]
+description = "A responsive vector drawing IDE with a compact geometry DSL, live 2D and isometric previews, and DXF R12 export."
+
+[dependency-groups]
+dev = [
+    "flet-cli",
+    "flet-desktop",
+    "flet-web"
+]
+
+[tool.flet.metadata]
+title = "Draftline CAD"
+
+[tool.flet]
+org = "dev.flet"
+company = "William Adams"
+copyright = "Copyright (C) 2026 by William Adams"
+product = "Draftline CAD"
+
+[tool.flet.app]
+path = "src"
