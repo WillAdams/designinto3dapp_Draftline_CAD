@@ -18,8 +18,8 @@ BLOCK_FIELDS: dict[str, list[tuple[str, str, str]]] = {
     ],
     "LINE": [
         ("name", "Name", "line-1"),
-        ("from", "From x,y", "0,0"),
-        ("to", "To x,y", "10,0"),
+        ("from", "From x,y,z (z optional)", "0,0,0"),
+        ("to", "To x,y,z (z optional)", "10,0,0"),
         ("plane", "Plane", "XY"),
         ("rotate", "Rotate degrees", "0"),
         ("offset", "Normal offset", "0"),

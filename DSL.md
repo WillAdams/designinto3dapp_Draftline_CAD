@@ -17,6 +17,7 @@ UNITS mm
 LAYER name=frame color=7
 PLANE FRONT origin=0,0,0 u=1,0,0 v=0,0,1
 LINE name=bottom-rail from=0,0 to=100,0 plane=FRONT layer=frame
+LINE name=raised-edge from=10,10,0 to=30,10,12 plane=XY layer=frame
 CIRCLE name=badge center=50,40 radius=8 plane=FRONT layer=frame
 ARC name=badge-sweep center=50,40 radius=12 start=210 end=330 plane=FRONT layer=frame color=yellow
 ```
@@ -45,7 +46,7 @@ PLANE FRONT origin=0,0,0 u=1,0,0 v=0,0,1
 PLANE RIGHT origin=100,0,0 u=0,1,0 v=0,0,1
 PLANE BACK origin=100,60,0 u=-1,0,0 v=0,0,1
 
-# LINE name=... from=x,y to=x,y plane=... rotate=degrees offset=... layer=...
+# LINE name=... from=x,y[,z] to=x,y[,z] plane=... rotate=degrees offset=... layer=...
 LINE name=top-edge-a from=0,0 to=100,0 plane=TOP rotate=0 offset=0 layer=frame
 LINE name=top-edge-b from=100,0 to=100,60 plane=TOP rotate=0 offset=0 layer=frame
 LINE name=front-rail from=0,0 to=100,0 plane=FRONT rotate=0 offset=0 layer=frame
@@ -53,6 +54,7 @@ LINE name=front-upright from=0,0 to=0,70 plane=FRONT rotate=0 offset=0 layer=fra
 LINE name=front-right-upright from=100,0 to=100,70 plane=FRONT rotate=0 offset=0 layer=frame
 LINE name=right-rail from=0,0 to=60,0 plane=RIGHT rotate=0 offset=0 layer=frame
 LINE name=top-mark from=38,30 to=62,30 plane=TOP rotate=10 offset=1 layer=detail
+LINE name=raised-edge from=10,10,0 to=30,10,12 plane=XY rotate=0 offset=0 layer=detail
 LINE name=offset-divider from=20,22 to=80,22 plane=FRONT rotate=0 offset=3 layer=divider
 
 # CIRCLE name=... center=x,y radius=... plane=... rotate=... offset=... layer=...
@@ -137,18 +139,18 @@ Unknown parameters and repeated keys are reported as line-specific parser errors
 
 ### `LINE`
 
-Draws one straight segment between two local 2D points.
+Draws one straight segment between two local points on the selected plane. Each endpoint may specify its own normal displacement, so one line can slope in 3D even when both endpoints share the same plane.
 
 ```text
-LINE from=x1,y1 to=x2,y2 [name=...] [plane=...] [rotate=...] [offset=...] [layer=...] [color=...]
+LINE from=x1,y1[,z1] to=x2,y2[,z2] [name=...] [plane=...] [rotate=...] [offset=...] [layer=...] [color=...]
 ```
 
 Required parameters:
 
-- `from=x1,y1` — local start point.
-- `to=x2,y2` — local end point.
+- `from=x1,y1` or `from=x1,y1,z1` — local start point; the third coordinate is optional and defaults to `0`.
+- `to=x2,y2` or `to=x2,y2,z2` — local end point; the third coordinate is optional and defaults to `0`.
 
-The resulting world-space points may differ in X, Y, and Z depending on the plane and its offset. DXF output uses a native `LINE` entity.
+The first two coordinates are mapped through the plane axes after `rotate`. The optional third coordinate moves that endpoint along the plane normal; shared `offset` is then added to both endpoints. Thus, on `XY`, `from=0,0,0 to=10,0,5` rises five units in world Z. On a vertical plane, the same third coordinate moves in that plane's normal direction. Two-coordinate forms remain supported. DXF output writes both resolved world-space points to a native `LINE` entity.
 
 ### `CIRCLE`
 
@@ -214,7 +216,7 @@ The exporter writes an ASCII DXF R12 (`AC1009`) with a layer table, layer ACI co
 
 ## Complete sample program
 
-This is the sample preloaded in the editor. It demonstrates every command and every supported parameter, including layer colours, an entity colour override, distinct drawing planes, rotation, and normal displacement.
+This reference program demonstrates every command and supported parameter, including layer colours, an entity colour override, distinct drawing planes, rotation, normal displacement, and independently elevated line endpoints.
 
 ```text
 # Dimensions are in millimetres
@@ -238,6 +240,7 @@ LINE name=front-upright from=0,0 to=0,70 plane=FRONT rotate=0 offset=0 layer=fra
 LINE name=front-right-upright from=100,0 to=100,70 plane=FRONT rotate=0 offset=0 layer=frame
 LINE name=right-rail from=0,0 to=60,0 plane=RIGHT rotate=0 offset=0 layer=frame
 LINE name=top-mark from=38,30 to=62,30 plane=TOP rotate=10 offset=1 layer=detail
+LINE name=raised-edge from=10,10,0 to=30,10,12 plane=XY rotate=0 offset=0 layer=detail
 LINE name=offset-divider from=20,22 to=80,22 plane=FRONT rotate=0 offset=3 layer=divider
 
 CIRCLE name=badge center=50,44 radius=9 plane=FRONT rotate=0 offset=1 layer=detail

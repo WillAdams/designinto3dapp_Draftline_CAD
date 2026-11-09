@@ -115,6 +115,16 @@ def parse_vector(raw: str, count: int, label: str) -> tuple[float, ...]:
     return tuple(float(part) for part in parts)
 
 
+def parse_point(raw: str, label: str) -> Vec3:
+    parts = raw.split(",")
+    if len(parts) not in (2, 3):
+        raise ValueError(f"{label} expects x,y or x,y,z coordinates")
+    coordinates = tuple(float(part) for part in parts)
+    if len(coordinates) == 2:
+        return coordinates[0], coordinates[1], 0.0
+    return coordinates  # type: ignore[return-value]
+
+
 def parse_program(source: str) -> tuple[list[Entity], dict[str, Plane], str, dict[str, Layer], list[str]]:
     planes = dict(DEFAULT_PLANES)
     entities: list[Entity] = []
@@ -165,8 +175,8 @@ def parse_program(source: str) -> tuple[list[Entity], dict[str, Plane], str, dic
                 allowed |= {"from", "to"}
                 required = {"from", "to"}
                 values = {
-                    "from": parse_vector(params.get("from", ""), 2, "from"),
-                    "to": parse_vector(params.get("to", ""), 2, "to"),
+                    "from": parse_point(params.get("from", ""), "from"),
+                    "to": parse_point(params.get("to", ""), "to"),
                 }
             elif command == "CIRCLE":
                 allowed |= {"center", "radius"}
@@ -234,12 +244,14 @@ def _check_keys(params: dict[str, str], allowed: set[str]) -> None:
         raise ValueError(f"unknown parameter(s): {', '.join(sorted(unknown))}")
 
 
-def world_point(plane: Plane, local: Vec2, rotate: float = 0, offset: float = 0) -> Vec3:
+def world_point(plane: Plane, local: tuple[float, ...], rotate: float = 0, offset: float = 0) -> Vec3:
     angle = math.radians(rotate)
-    x, y = local
+    x, y = local[0], local[1]
+    local_z = local[2] if len(local) > 2 else 0.0
     rx = x * math.cos(angle) - y * math.sin(angle)
     ry = x * math.sin(angle) + y * math.cos(angle)
-    return add(add(add(plane.origin, scale(plane.u, rx)), scale(plane.v, ry)), scale(plane.normal, offset))
+    normal_distance = local_z + offset
+    return add(add(add(plane.origin, scale(plane.u, rx)), scale(plane.v, ry)), scale(plane.normal, normal_distance))
 
 
 def entity_points(entity: Entity, plane: Plane, segments: int = 64) -> list[Vec3]:
